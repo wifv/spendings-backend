@@ -3,19 +3,18 @@ const app = express();
 const cors = require('cors');
 const mysql = require('mysql2');
 const input = require('input'); // npm install input
+const port = 3000
 
 app.use(cors());
 app.use(express.json());
 
-app.use(cors({ origin: 'https://reminder-lemon.vercel.app/' }));
+const corsOptions = {
+  origin: ['http://localhost:5173'],
+  methods: 'GET,POST',
+};
 
-app.post('/addToMoney', (req, res) => {
-  if (req.body) {
-    addToMoney(req.body.time, req.body.amount)
-    res.statusCode = 200
-    res.json({ message: 'Good stuff' });
-  }
-})
+app.use(cors(corsOptions));
+
 
 
 // Create a connection object
@@ -33,28 +32,84 @@ connection.connect((err) => {
     return;
   }
   console.log('Connected to the database');
+  connected = true
 });
 
-function addToMoney (time, amount) {
-  connection.query(`insert into money values(${time}, ${amount})`, (err, response) => {
+app.post('/addTransaction', (req, res) => {
+  if (req.body) {
+    console.log(req.body)
+    addTransaction(req.body.time, req.body.amount)
+    res.statusCode = 200
+    res.json({ message: 'Good stuff' });
+  }
+})
+
+app.get('/getTransactions', (req, res) => {
+  const limit = parseInt(req.query.limit)
+  const offset = parseInt(req.query.offset)
+  console.log(limit, offset)
+  let results = getTransactions(10, 0)
+  if (results == 500) {
+    res.status(500).send('Internal Server Error')
+  }
+  res.status = 200
+  res.json(results)
+})
+
+app.delete('/deleteTransaction', (req, res) => {
+  if (req.body) {
+    console.log(req.body)
+    addTransaction(req.body.time, req.body.amount)
+    res.statusCode = 200
+    res.json({ message: 'Good stuff' });
+  }
+})
+
+function addTransaction(time, amount) {
+  console.log('time: ' + time, 'amount: ' + amount)
+  connection.query(`insert into transaction (time, amount) values("${time}", ${amount})`, (err, response) => {
     if (err) {
       console.log('Error: ' + err)
-      return 0
+      return 500
     }
     console.log('response: ' + response)
-    return 1
+    return
   })
 }
 
-input.text('to end the connection type /end ')
-.then(text => {
-  if (text == '/end') {
-    connection.end((err) => {
-      if (err) {
-        console.error('Error closing the connection:', err);
-        return;
-      }
-      console.log('Connection closed');
-    });
-  }
-})
+function deleteTransaction(id) {
+  console.log("id: " + id)
+  connection.query(`delete from transaction where id = ${id}`, (err, response) => {
+    if (err) {
+      console.log('Error: ' + err)
+      return
+    }
+    console.log('response: ' + response)
+    return
+  })
+}
+
+function getTransactions(limit, offset) {
+  connection.query(`select * from transaction limit ${limit} offset ${offset}`, (err, response) => {
+    if (err) {
+      console.log('Error: ' + err)
+      return
+    }
+    console.log('response: ' + response)
+    return
+  })
+}
+
+
+
+// connection.end((err) => {
+//   if (err) {
+//     console.error('Error closing the connection:', err);
+//     return;
+//   }
+//   console.log('Connection closed');
+// });
+
+app.listen(port, () => {
+  console.log(`Server running at port: ${port}`);
+});
