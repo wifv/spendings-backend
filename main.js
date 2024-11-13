@@ -15,7 +15,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-
+const ISE = { message: 'Internal Server Error' }
 
 // Create a connection object
 const connection = mysql.createConnection({
@@ -32,83 +32,78 @@ connection.connect((err) => {
     return;
   }
   console.log('Connected to the database');
-  connected = true
 });
 
 app.post('/addTransaction', (req, res) => {
-  if (req.body) {
-    console.log(req.body)
-    addTransaction(req.body.time, req.body.amount)
-    res.statusCode = 200
-    res.json({ message: 'Good stuff' });
-  }
-})
+  const { time, amount } = req.body;
+  addTransaction(time, amount)
+    .then((result) => {
+      res.status(200).json(result);
+    })
+    .catch((err) => {
+      res.status(500).json({ error: 'Failed to add transaction' });
+    });
+});
 
-app.get('/getTransactions', (req, res) => {
-  const limit = parseInt(req.query.limit)
-  const offset = parseInt(req.query.offset)
-  console.log(limit, offset)
-  let results = getTransactions(10, 0)
-  if (results == 500) {
-    res.status(500).send('Internal Server Error')
-  }
-  res.status = 200
-  res.json(results)
-})
+app.get('/getTransactions', async (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = parseInt(req.query.offset) || 0;
 
-app.delete('/deleteTransaction', (req, res) => {
-  if (req.body) {
-    console.log(req.body)
-    addTransaction(req.body.time, req.body.amount)
-    res.statusCode = 200
-    res.json({ message: 'Good stuff' });
+  try {
+    const results = await getTransactions(limit, offset);
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json(ISE);
   }
-})
+});
+
+app.delete('/deleteTransaction/:id', (req, res) => {
+  const id = req.params.id;
+
+  deleteTransaction(id)
+    .then(() => {
+      res.status(200).json({ message: 'Transaction deleted successfully' });
+    })
+    .catch((err) => {
+      res.status(500).json(ISE);
+    });
+});
+
 
 function addTransaction(time, amount) {
-  console.log('time: ' + time, 'amount: ' + amount)
-  connection.query(`insert into transaction (time, amount) values("${time}", ${amount})`, (err, response) => {
-    if (err) {
-      console.log('Error: ' + err)
-      return 500
-    }
-    console.log('response: ' + response)
-    return
-  })
+  return new Promise((resolve, reject) => {
+    const query = `INSERT INTO transaction (time, amount) VALUES (?, ?)`;
+    connection.query(query, [time, amount], (err, results) => {
+      if (err) {
+        reject(err); // Reject the promise if there's an error
+      } else {
+        resolve({ message: 'Transaction added successfully', transactionId: results.insertId }); // Resolve the promise with a success message
+      }
+    });
+  });
 }
 
 function deleteTransaction(id) {
-  console.log("id: " + id)
   connection.query(`delete from transaction where id = ${id}`, (err, response) => {
     if (err) {
-      console.log('Error: ' + err)
       return
     }
-    console.log('response: ' + response)
     return
   })
 }
 
 function getTransactions(limit, offset) {
-  connection.query(`select * from transaction limit ${limit} offset ${offset}`, (err, response) => {
-    if (err) {
-      console.log('Error: ' + err)
-      return
-    }
-    console.log('response: ' + response)
-    return
-  })
+  return new Promise((resolve, reject) => {
+    connection.query(`SELECT * FROM transaction LIMIT ${limit} OFFSET ${offset}`, (err, results) => {
+      if (err) {
+        reject(err); // Reject the promise if there's an error
+      } else {
+        resolve(results); // Resolve the promise with the query results
+      }
+    });
+  });
 }
-
-
-
-// connection.end((err) => {
-//   if (err) {
-//     console.error('Error closing the connection:', err);
-//     return;
-//   }
-//   console.log('Connection closed');
-// });
+/////////////////
 
 app.listen(port, () => {
   console.log(`Server running at port: ${port}`);
