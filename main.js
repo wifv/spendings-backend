@@ -13,11 +13,10 @@ const corsOptions = {
   methods: 'GET,POST',
 };
 
-app.use(cors(corsOptions));
-
 const ISE = { message: 'Internal Server Error' }
 
-// Create a connection object
+app.use(cors(corsOptions));
+
 const connection = mysql.createConnection({
   host: 'localhost',   // Database host
   user: 'root',        // Database user
@@ -25,7 +24,6 @@ const connection = mysql.createConnection({
   database: 'spending' // Database name
 });
 
-// Connect to the database
 connection.connect((err) => {
   if (err) {
     console.error('Error connecting to the database:', err);
@@ -34,14 +32,29 @@ connection.connect((err) => {
   console.log('Connected to the database');
 });
 
+/////////////////
+
 app.post('/addTransaction', (req, res) => {
   const { time, amount } = req.body;
+
   addTransaction(time, amount)
     .then((result) => {
       res.status(200).json(result);
     })
-    .catch((err) => {
+    .catch(() => {
       res.status(500).json({ error: 'Failed to add transaction' });
+    });
+});
+
+app.delete('/deleteTransaction/:id', (req, res) => {
+  const id = req.params.id;
+
+  deleteTransaction(id)
+    .then(result => {
+      res.status(200).json(result);
+    })
+    .catch(() => {
+      res.status(500).json(ISE);
     });
 });
 
@@ -49,60 +62,52 @@ app.get('/getTransactions', async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const offset = parseInt(req.query.offset) || 0;
 
-  try {
-    const results = await getTransactions(limit, offset);
-    res.status(200).json(results);
-  } catch (error) {
-    res.status(500).json(ISE);
-  }
-});
-
-app.delete('/deleteTransaction/:id', (req, res) => {
-  const id = req.params.id;
-
-  deleteTransaction(id)
-    .then(() => {
-      res.status(200).json({ message: 'Transaction deleted successfully' });
+  getTransactions(limit, offset)
+    .then(result => {
+      res.status(200).json(result);
     })
-    .catch((err) => {
+    .catch(() => {
       res.status(500).json(ISE);
-    });
+    })
 });
 
+/////////////////
 
 function addTransaction(time, amount) {
   return new Promise((resolve, reject) => {
-    const query = `INSERT INTO transaction (time, amount) VALUES (?, ?)`;
-    connection.query(query, [time, amount], (err, results) => {
+    connection.query(`insert into transaction (time, amount) values("${time}", ${amount})`, (err, response) => {
       if (err) {
-        reject(err); // Reject the promise if there's an error
+        reject(err);
       } else {
-        resolve({ message: 'Transaction added successfully', transactionId: results.insertId }); // Resolve the promise with a success message
+        resolve({ message: 'Transaction added successfully' }); // Resolve the promise with a success message
       }
     });
   });
 }
 
 function deleteTransaction(id) {
-  connection.query(`delete from transaction where id = ${id}`, (err, response) => {
-    if (err) {
-      return
-    }
-    return
-  })
-}
-
-function getTransactions(limit, offset) {
   return new Promise((resolve, reject) => {
-    connection.query(`SELECT * FROM transaction LIMIT ${limit} OFFSET ${offset}`, (err, results) => {
+    connection.query(`DELETE FROM transaction WHERE id = ?`, [id], (err, result) => {
       if (err) {
-        reject(err); // Reject the promise if there's an error
+        reject(err);
       } else {
-        resolve(results); // Resolve the promise with the query results
+        resolve({ message: 'Transaction deleted successfully' });
       }
     });
   });
 }
+function getTransactions(limit, offset) {
+  return new Promise((resolve, reject) => {
+    connection.query(`SELECT * FROM transaction LIMIT ${limit} OFFSET ${offset}`, (err, results) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
 /////////////////
 
 app.listen(port, () => {
