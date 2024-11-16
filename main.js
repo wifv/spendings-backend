@@ -37,6 +37,9 @@ connection.connect((err) => {
 app.post('/addTransaction', (req, res) => {
   const { time, amount } = req.body;
 
+  if (time == "" || amount == 0) {
+    res.status(400).json({ error: 'Bad request' })
+  }
   addTransaction(time, amount)
     .then((result) => {
       res.status(200).json(result);
@@ -75,11 +78,12 @@ app.get('/getTransactions', async (req, res) => {
 
 function addTransaction(time, amount) {
   return new Promise((resolve, reject) => {
-    connection.query(`insert into transaction (time, amount) values("${time}", ${amount})`, (err, response) => {
+    const query = 'INSERT INTO transaction (time, amount) VALUES (?, ?)';
+    connection.query(query, [time, amount], (err, response) => {
       if (err) {
         reject(err);
       } else {
-        resolve({ message: 'Transaction added successfully' }); // Resolve the promise with a success message
+        resolve({ message: 'Transaction added successfully' });
       }
     });
   });
@@ -96,9 +100,11 @@ function deleteTransaction(id) {
     });
   });
 }
+
 function getTransactions(limit, offset) {
   return new Promise((resolve, reject) => {
-    connection.query(`SELECT * FROM transaction LIMIT ${limit} OFFSET ${offset}`, (err, results) => {
+    const query = 'SELECT * FROM transaction LIMIT ? OFFSET ?';
+    connection.query(query, [limit, offset], (err, results) => {
       if (err) {
         reject(err);
       } else {
