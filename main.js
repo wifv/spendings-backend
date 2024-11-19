@@ -39,14 +39,15 @@ app.post('/addTransaction', (req, res) => {
 
   if (time == "" || amount == 0) {
     res.status(400).json({ error: 'Bad request' })
+  } else {
+    addTransaction(time, amount)
+      .then((result) => {
+        res.status(200).json(result);
+      })
+      .catch(() => {
+        res.status(500).json({ error: 'Failed to add transaction' });
+      });
   }
-  addTransaction(time, amount)
-    .then((result) => {
-      res.status(200).json(result);
-    })
-    .catch(() => {
-      res.status(500).json({ error: 'Failed to add transaction' });
-    });
 });
 
 app.delete('/deleteTransaction/:id', (req, res) => {
